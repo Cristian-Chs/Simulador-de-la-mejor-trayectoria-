@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPS NAVIGATOR - Punto Fijo (Cyberpunk Edition)</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&family=Orbitron:wght@400;700&family=Consolas&display=swap" rel="stylesheet">
+    
+    <!-- MAPLIBRE GL JS (Alternativa gratuita a Mapbox) -->
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+    
+    <!-- LUCIDE ICONS -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- TOP HEADER -->
+        <header class="top-header">
+            <div class="header-left">
+                <div class="logo-icon">
+                    <i data-lucide="crosshair" color="#FF6B1A" stroke-width="2"></i>
+                </div>
+                <h1>Despacho Core</h1>
+            </div>
+            
+            <div class="header-icons">
+                <div id="btn-history" class="icon-btn" title="Historial de pedidos"><i data-lucide="history"></i></div>
+                <div id="btn-route" class="icon-btn" title="Alternar visibilidad de ruta"><i data-lucide="route"></i></div>
+                <div id="btn-siren" class="icon-btn" title="Simular Emergencia"><i data-lucide="siren"></i></div>
+                <div id="btn-car" class="icon-btn" title="Estado del vehículo"><i data-lucide="car"></i></div>
+                <button id="btn-theme" class="theme-toggle" title="Cambiar tema claro/oscuro">
+                    <i data-lucide="sun" class="icon-sun"></i>
+                    <i data-lucide="moon" class="icon-moon"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- MAIN SIMULATION AREA -->
+        <main class="simulation-area">
+            <div id="map"></div>
+            
+            <!-- LEFT NAVIGATION CARD -->
+            <div class="nav-card" id="nav-info-card">
+                <header class="nav-header">
+                    <h3>CONTROL DE DESPACHO</h3>
+                </header>
+                <div class="nav-body">
+                    <div class="status-box">
+                        <h2 id="lbl-orden-actual">SISTEMA STANDBY</h2>
+                        <p id="lbl-detalles">A la espera de coordenadas de entrega...</p>
+                    </div>
+                    <div class="eta-box">
+                        <span id="lbl-eta-card">ETA: -- min</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OVERLAY CONTROLS (Floating) -->
+            <div class="floating-controls">
+                <button id="btn-view" class="fab-btn" title="Alternar Vista 2D/3D">
+                    <i data-lucide="layers"></i>
+                </button>
+                <button id="btn-poi" class="fab-btn" title="Mostrar lugares cercanos">
+                    <i data-lucide="map-pin"></i>
+                </button>
+                <button id="btn-gen" class="fab-btn" title="Limpiar Mapa (Reset)">
+                    <i data-lucide="rotate-ccw"></i>
+                </button>
+                <button id="btn-run" class="fab-btn success" title="Iniciar Despacho">
+                    <i data-lucide="zap" fill="currentColor"></i>
+                </button>
+            </div>
+
+            <!-- POI FILTER PANEL -->
+            <div id="poi-panel" class="poi-panel hidden">
+                <div class="poi-panel-header">
+                    <span>Lugares Cercanos</span>
+                    <button id="poi-close" class="poi-close-btn">&times;</button>
+                </div>
+                <div class="poi-panel-body" id="poi-categories"></div>
+                <div class="poi-panel-status">
+                    <span id="poi-count">0 lugares</span>
+                    <span id="poi-source">Overpass API</span>
+                </div>
+            </div>
+
+            <!-- RE-CENTER BUTTON (appears when camera is detached) -->
+            <button id="btn-recenter" class="btn-recenter hidden" title="Volver al vehículo">
+                <i data-lucide="locate-fixed"></i>
+                <span>SEGUIR VEHÍCULO</span>
+            </button>
+        </main>
+
+        <!-- BOTTOM DATA BAR -->
+        <footer class="bottom-bar">
+            <div class="stats-container">
+                <div class="stat-item">
+                    <span class="stat-label">DISTANCIA TOTAL</span>
+                    <div class="stat-value"><span id="lbl-km">0.00</span> <small>km</small></div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">VELOCIDAD ACT</span>
+                    <div class="stat-value"><span id="lbl-speed">0.0</span> <small>km/h</small></div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">TIEMPO ESTIMADO</span>
+                    <div class="stat-value"><span id="lbl-tiempo">0</span> <small>min</small></div>
+                </div>
+            </div>
+
+            <div class="progress-section">
+                <span class="point-label">PUNTO ORIGEN</span>
+                <div class="progress-track">
+                    <div class="progress-node active" id="node-start"></div>
+                    <div class="progress-line-bg">
+                        <div id="progress-fill" class="progress-line-fill">
+                            <div class="progress-thumb">
+                                <span id="lbl-percent">0%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="progress-node" id="node-end"></div>
+                </div>
+                <span class="point-label">PUNTO DESTINO</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- EMERGENCY OVERLAY -->
+    <div id="emergency-overlay" class="emergency-overlay hidden"></div>
+
+    <!-- MODAL: Historial de Pedidos -->
+    <div id="modal-history" class="modal-backdrop hidden">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <i data-lucide="history" style="width:18px;height:18px;color:#FF6B1A"></i>
+                    <span>HISTORIAL DE DESPACHO</span>
+                </div>
+                <button class="modal-close" id="close-history"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body" id="history-list">
+                <p class="empty-state">Sin pedidos en el historial aún.<br>Inicia un despacho para ver el registro.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Telemetría del Vehículo -->
+    <div id="modal-car" class="modal-backdrop hidden">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <i data-lucide="car" style="width:18px;height:18px;color:#FF6B1A"></i>
+                    <span>TELEMETRÍA DEL VEHÍCULO</span>
+                </div>
+                <button class="modal-close" id="close-car"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="telemetry-grid">
+                    <div class="tele-item">
+                        <span class="tele-label">ESTADO</span>
+                        <span class="tele-value" id="tele-status">STANDBY</span>
+                    </div>
+                    <div class="tele-item">
+                        <span class="tele-label">VELOCIDAD</span>
+                        <span class="tele-value" id="tele-speed">0.0 km/h</span>
+                    </div>
+                    <div class="tele-item">
+                        <span class="tele-label">DISTANCIA RECORRIDA</span>
+                        <span class="tele-value" id="tele-dist">0.00 km</span>
+                    </div>
+                    <div class="tele-item">
+                        <span class="tele-label">PEDIDOS PENDIENTES</span>
+                        <span class="tele-value" id="tele-pending">0</span>
+                    </div>
+                    <div class="tele-item">
+                        <span class="tele-label">PEDIDOS ENTREGADOS</span>
+                        <span class="tele-value" id="tele-delivered">0</span>
+                    </div>
+                    <div class="tele-item">
+                        <span class="tele-label">PROGRESO DE RUTA</span>
+                        <span class="tele-value" id="tele-progress">0%</span>
+                    </div>
+                    <div class="tele-item">
+                        <span class="tele-label">POSICIÓN (LNG)</span>
+                        <span class="tele-value" id="tele-lng">--</span>
+                    </div>
+                    <div class="tele-item">
+                        <span class="tele-label">POSICIÓN (LAT)</span>
+                        <span class="tele-value" id="tele-lat">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Init Lucide Icons -->
+    <script>
+        lucide.createIcons();
+    </script>
+    <script src="poi-system.js"></script>
+    <script src="renderer.js"></script>
+</body>
+</html>
