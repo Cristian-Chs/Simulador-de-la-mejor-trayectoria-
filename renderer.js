@@ -1,3 +1,4 @@
+import { initPOISystem, POI_CATEGORIES } from './reference-points.js';
 const PUNTO_FIJO_COORDS = [-70.183, 11.696]; // [lng, lat] 
 
 // Configuración de temas del mapa
@@ -766,6 +767,8 @@ const poiCount = document.getElementById('poi-count');
 const poiMgr = initPOISystem(map);
 
 function renderPOIPanel() {
+    if (!poiMgr) return;
+
     const loadingDiv = document.createElement('div');
     loadingDiv.className = 'poi-loading';
     loadingDiv.textContent = 'Cargando lugares...';
@@ -807,14 +810,14 @@ function renderPOIPanel() {
     });
 }
 
-let isPoiVisible = false;
-
+// Listeners de la interfaz
 btnPoi.addEventListener('click', () => {
     isPoiVisible = !isPoiVisible;
 
     if (isPoiVisible) {
         btnPoi.classList.add('poi-active');
         poiPanel.classList.remove('hidden');
+        poiMgr.setVisible(true);
         renderPOIPanel();
     } else {
         btnPoi.classList.remove('poi-active');
@@ -830,12 +833,17 @@ poiClose.addEventListener('click', () => {
     poiMgr.setVisible(false);
 });
 
-// Re-fetch POIs when map stops moving (debounced)
-let poiDebounce = null;
+
+const mapPF = L.map('map').setView([11.6912, -70.1834], 14); // Centro en Punto Fijo
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapPF);
+
+// Conectamos el mapa con el módulo de datos
+poiMgr = initPOISystem(map); 
+
+// Escuchar movimiento del mapa para actualizar datos
 map.on('moveend', () => {
     if (isPoiVisible) {
         clearTimeout(poiDebounce);
         poiDebounce = setTimeout(renderPOIPanel, 500);
     }
 });
-
