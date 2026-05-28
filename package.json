@@ -2,6 +2,7 @@
   "name": "simulacion-y-model",
   "version": "1.0.0",
   "description": "LogiSim - Simulador de entregas Punto Fijo",
+  "type": "module",
   "main": "main.js",
   "scripts": {
     "start": "electron .",

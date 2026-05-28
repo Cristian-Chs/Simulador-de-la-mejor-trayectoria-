@@ -1,4 +1,5 @@
-import { initPOISystem, POI_CATEGORIES } from './reference-points.js';
+import { initPOISystem, POI_CATEGORIES } from './reference.js';
+
 const PUNTO_FIJO_COORDS = [-70.183, 11.696]; // [lng, lat] 
 
 // Configuración de temas del mapa
@@ -133,6 +134,8 @@ function enhanceLabels() {
 map.on('style.load', () => {
     setupMapLayers();
     enhanceLabels();
+    renderPOIPanel();
+
     // Restaurar los datos de ruta si existían antes del cambio de estilo
     if (roadPath.length > 0) {
         getRoute(); 
@@ -511,7 +514,7 @@ btnRun.addEventListener('click', () => {
         setFollowMode(true);
         
         // Cambiar icono a Carro
-        vehicleEl.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0a0a10" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>`;
+        vehicleEl.innerHTML = 'icons/car.svg';
         vehicleEl.style.display = 'flex';
         vehicleEl.style.alignItems = 'center';
         vehicleEl.style.justifyContent = 'center';
@@ -766,6 +769,13 @@ const poiCount = document.getElementById('poi-count');
 
 const poiMgr = initPOISystem(map);
 
+map.on('moveend', () => {
+    if (isPoiVisible) {
+        clearTimeout(poiDebounce);
+        poiDebounce = setTimeout(renderPOIPanel, 500); // Evita saturar la API con debounce
+    }
+});
+
 function renderPOIPanel() {
     if (!poiMgr) return;
 
@@ -812,7 +822,7 @@ function renderPOIPanel() {
 
 // Listeners de la interfaz
 btnPoi.addEventListener('click', () => {
-    isPoiVisible = !isPoiVisible;
+    window.isPoiVisible = !window.isPoiVisible;
 
     if (isPoiVisible) {
         btnPoi.classList.add('poi-active');
@@ -827,23 +837,10 @@ btnPoi.addEventListener('click', () => {
 });
 
 poiClose.addEventListener('click', () => {
-    isPoiVisible = false;
+    window.isPoiVisible = false;
     btnPoi.classList.remove('poi-active');
     poiPanel.classList.add('hidden');
     poiMgr.setVisible(false);
 });
 
 
-const mapPF = L.map('map').setView([11.6912, -70.1834], 14); // Centro en Punto Fijo
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapPF);
-
-// Conectamos el mapa con el módulo de datos
-poiMgr = initPOISystem(map); 
-
-// Escuchar movimiento del mapa para actualizar datos
-map.on('moveend', () => {
-    if (isPoiVisible) {
-        clearTimeout(poiDebounce);
-        poiDebounce = setTimeout(renderPOIPanel, 500);
-    }
-});
