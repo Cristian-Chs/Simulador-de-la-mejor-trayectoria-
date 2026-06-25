@@ -1,7 +1,5 @@
 import { app, BrowserWindow } from 'electron';
 
-import path from 'path';
-
 function createWindow() {
   const mainWindow = new BrowserWindow({
     autoHideMenuBar: true,
@@ -17,8 +15,13 @@ function createWindow() {
 
   mainWindow.loadFile('index.html');
   
-  // Opcional: abrir herramientas de desarrollo
-  // mainWindow.webContents.openDevTools();
+  // Forward renderer console to main process
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    console.log(`[RENDERER] ${message} (at ${sourceId}:${line})`);
+  });
+
+  // Abrir herramientas de desarrollo (comentar para producción)
+  mainWindow.webContents.openDevTools();
 }
 
 app.whenReady().then(() => {

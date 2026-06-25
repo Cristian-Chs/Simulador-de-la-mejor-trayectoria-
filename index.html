@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https:; img-src 'self' data: https:; connect-src 'self' https:; worker-src 'self' blob:;">
     <title>LogiSim - Punto Fijo </title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&family=Orbitron:wght@400;700&family=Consolas&display=swap" rel="stylesheet">
@@ -13,6 +14,12 @@
     
     <!-- LUCIDE ICONS -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- CHART.JS -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    
+    <!-- SWEETALERT2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
     <div class="app-container">
@@ -26,16 +33,53 @@
             </div>
             
             <div class="header-icons">
+                <div id="btn-algorithm" class="icon-btn" title="Selector de Algoritmo"><i data-lucide="git-branch"></i></div>
                 <div id="btn-history" class="icon-btn" title="Historial de pedidos"><i data-lucide="history"></i></div>
                 <div id="btn-route" class="icon-btn" title="Alternar visibilidad de ruta"><i data-lucide="route"></i></div>
                 <div id="btn-siren" class="icon-btn" title="Simular Emergencia"><i data-lucide="siren"></i></div>
                 <div id="btn-car" class="icon-btn" title="Estado del vehículo"><i data-lucide="car"></i></div>
+                <div id="btn-chart" class="icon-btn" title="Panel de Gráficos"><i data-lucide="bar-chart-3"></i></div>
                 <button id="btn-theme" class="theme-toggle" title="Cambiar tema claro/oscuro">
                     <i data-lucide="sun" class="icon-sun"></i>
                     <i data-lucide="moon" class="icon-moon"></i>
                 </button>
             </div>
         </header>
+
+        <!-- SIMULATION CONTROLS BAR -->
+        <div class="sim-controls-bar">
+            <div class="sim-controls-left">
+                <button id="btn-playpause" class="sim-btn" title="Iniciar/Pausar Simulación">
+                    <i data-lucide="play"></i>
+                </button>
+                <div class="speed-control">
+                    <span class="speed-label">VEL</span>
+                    <button id="speed-1" class="speed-btn active">1x</button>
+                    <button id="speed-2" class="speed-btn">2x</button>
+                    <button id="speed-4" class="speed-btn">4x</button>
+                </div>
+            </div>
+            <div class="sim-controls-center">
+                <span id="lbl-algorithm" class="algo-badge">ALGORITMO: DIJKSTRA</span>
+                <span id="lbl-weather" class="weather-badge sunny">☀ SOLEADO</span>
+            </div>
+            <div class="sim-controls-right">
+                <div class="efficiency-metrics">
+                    <span class="metric" title="Ahorro de combustible proyectado">
+                        <i data-lucide="fuel" style="width:12px;height:12px;"></i>
+                        <span id="metric-fuel">0%</span>
+                    </span>
+                    <span class="metric" title="Capacidad de carga">
+                        <i data-lucide="package" style="width:12px;height:12px;"></i>
+                        <span id="metric-capacity">0%</span>
+                    </span>
+                    <span class="metric" title="Cumplimiento de ventana horaria">
+                        <i data-lucide="clock" style="width:12px;height:12px;"></i>
+                        <span id="metric-timely">0%</span>
+                    </span>
+                </div>
+            </div>
+        </div>
 
         <!-- MAIN SIMULATION AREA -->
         <main class="simulation-area">
@@ -65,6 +109,12 @@
                 <button id="btn-poi" class="fab-btn" title="Mostrar lugares cercanos">
                     <i data-lucide="map-pin"></i>
                 </button>
+                <button id="btn-weather" class="fab-btn" title="Cambiar Clima (Sol/Lluvia)">
+                    <i data-lucide="sun"></i>
+                </button>
+                <button id="btn-whatif" class="fab-btn" title="Simular Avería (What-If)">
+                    <i data-lucide="alert-triangle"></i>
+                </button>
                 <button id="btn-gen" class="fab-btn" title="Limpiar Mapa (Reset)">
                     <i data-lucide="rotate-ccw"></i>
                 </button>
@@ -91,6 +141,21 @@
                 <i data-lucide="locate-fixed"></i>
                 <span>SEGUIR VEHÍCULO</span>
             </button>
+
+            <!-- EVENT LOG CONSOLE -->
+            <div id="event-log" class="event-log">
+                <div class="event-log-header">
+                    <span><i data-lucide="terminal" style="width:12px;height:12px;"></i> CONSOLA DE EVENTOS</span>
+                    <button id="event-log-close" class="event-log-close">&times;</button>
+                </div>
+                <div class="event-log-body" id="event-log-body">
+                    <div class="log-entry info">[SISTEMA] Inicializando motor de simulación...</div>
+                    <div class="log-entry info">[SISTEMA] LogiSim v1.0 listo</div>
+                </div>
+            </div>
+            <button id="btn-toggle-log" class="fab-btn btn-toggle-log" title="Mostrar consola de eventos">
+                <i data-lucide="terminal"></i>
+            </button>
         </main>
 
         <!-- BOTTOM DATA BAR -->
@@ -107,6 +172,14 @@
                 <div class="stat-item">
                     <span class="stat-label">TIEMPO ESTIMADO</span>
                     <div class="stat-value"><span id="lbl-tiempo">0</span> <small>min</small></div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">AHORRO COMB.</span>
+                    <div class="stat-value"><span id="lbl-fuel-saving">0</span> <small>%</small></div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">PEDIDOS</span>
+                    <div class="stat-value"><span id="lbl-pedidos-stats">0/0</span> <small>ent</small></div>
                 </div>
             </div>
 
@@ -128,8 +201,39 @@
         </footer>
     </div>
 
+    <!-- TOAST NOTIFICATION CONTAINER -->
+    <div id="toast-container" class="toast-container"></div>
+
     <!-- EMERGENCY OVERLAY -->
     <div id="emergency-overlay" class="emergency-overlay hidden"></div>
+
+    <!-- WHAT-IF OVERLAY -->
+    <div id="whatif-overlay" class="whatif-overlay"></div>
+
+    <!-- SIMULATION LAYERS PANEL -->
+    <div id="layers-panel" class="layers-panel hidden">
+        <div class="layers-panel-header">
+            <span>CAPAS DE SIMULACIÓN</span>
+            <button id="layers-close" class="poi-close-btn">&times;</button>
+        </div>
+        <div class="layers-panel-body">
+            <div class="layer-item" data-layer="traffic">
+                <div class="layer-switch active"></div>
+                <span class="layer-swatch" style="background:#FF6B1A"></span>
+                <span class="layer-label">Zonas de Tráfico</span>
+            </div>
+            <div class="layer-item" data-layer="demand">
+                <div class="layer-switch active"></div>
+                <span class="layer-swatch" style="background:#00E676"></span>
+                <span class="layer-label">Alta Demanda</span>
+            </div>
+            <div class="layer-item" data-layer="risk">
+                <div class="layer-switch active"></div>
+                <span class="layer-swatch" style="background:#FF4466"></span>
+                <span class="layer-label">Zonas de Riesgo</span>
+            </div>
+        </div>
+    </div>
 
     <!-- MODAL: Historial de Pedidos -->
     <div id="modal-history" class="modal-backdrop hidden">
@@ -158,6 +262,31 @@
                 <button class="modal-close" id="close-car"><i data-lucide="x"></i></button>
             </div>
             <div class="modal-body">
+                <!-- SECCIÓN 1: CONDUCTOR Y VEHÍCULO -->
+                <div class="telemetry-section-header">
+                    <i data-lucide="user" style="width:16px;height:16px;color:var(--accent);"></i>
+                    <span>CONDUCTOR Y VEHÍCULO</span>
+                </div>
+                <div class="telemetry-grid-three">
+                    <div class="tele-item">
+                        <span class="tele-label">CHOFER</span>
+                        <span class="tele-value" id="tele-driver-name" style="font-size: 14px;">Carlos Mendoza</span>
+                    </div>
+                    <div class="tele-item">
+                        <span class="tele-label">PLACA</span>
+                        <span class="tele-value" id="tele-driver-plate" style="font-size: 14px;">AD831X</span>
+                    </div>
+                    <div class="tele-item">
+                        <span class="tele-label">VEHÍCULO</span>
+                        <span class="tele-value" id="tele-vehicle-model" style="font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Chevrolet N300 Delivery Van">Chevrolet N300</span>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 2: TELEMETRÍA EN TIEMPO REAL -->
+                <div class="telemetry-section-header" style="margin-top: 20px;">
+                    <i data-lucide="activity" style="width:16px;height:16px;color:var(--accent);"></i>
+                    <span>TELEMETRÍA EN TIEMPO REAL</span>
+                </div>
                 <div class="telemetry-grid">
                     <div class="tele-item">
                         <span class="tele-label">ESTADO</span>
@@ -172,14 +301,6 @@
                         <span class="tele-value" id="tele-dist">0.00 km</span>
                     </div>
                     <div class="tele-item">
-                        <span class="tele-label">PEDIDOS PENDIENTES</span>
-                        <span class="tele-value" id="tele-pending">0</span>
-                    </div>
-                    <div class="tele-item">
-                        <span class="tele-label">PEDIDOS ENTREGADOS</span>
-                        <span class="tele-value" id="tele-delivered">0</span>
-                    </div>
-                    <div class="tele-item">
                         <span class="tele-label">PROGRESO DE RUTA</span>
                         <span class="tele-value" id="tele-progress">0%</span>
                     </div>
@@ -192,6 +313,108 @@
                         <span class="tele-value" id="tele-lat">--</span>
                     </div>
                 </div>
+
+                <!-- SECCIÓN 3: DETALLES DEL PEDIDO ACTIVO -->
+                <div class="telemetry-section-header" style="margin-top: 20px;">
+                    <i data-lucide="package" style="width:16px;height:16px;color:var(--accent);"></i>
+                    <span>DETALLES DEL PEDIDO ACTIVO</span>
+                </div>
+                <div class="active-order-box" id="active-order-container">
+                    <div class="order-empty-state" id="order-empty-msg">
+                        No hay pedidos activos en tránsito. Asigna puntos de entrega en el mapa.
+                    </div>
+                    <div class="order-details-card hidden" id="order-details-card">
+                        <div class="order-card-row">
+                            <span class="order-card-label">ID PEDIDO:</span>
+                            <span class="order-card-value" id="order-id">PED-101</span>
+                        </div>
+                        <div class="order-card-row">
+                            <span class="order-card-label">CLIENTE:</span>
+                            <span class="order-card-value" id="order-client">Farmacia SAAS Paraguaná</span>
+                        </div>
+                        <div class="order-card-row">
+                            <span class="order-card-label">DIRECCIÓN:</span>
+                            <span class="order-card-value" id="order-address">Av. Jacinto Lara, Sector Centro</span>
+                        </div>
+                        <div class="order-card-row">
+                            <span class="order-card-label">CONTENIDO:</span>
+                            <span class="order-card-value" id="order-desc">Medicamentos de primera necesidad</span>
+                        </div>
+                        <div class="order-card-row-grid">
+                            <div style="display: flex; align-items: center;">
+                                <span class="order-card-label">PRIORIDAD:</span>
+                                <span class="order-badge" id="order-priority">ALTA</span>
+                            </div>
+                            <div style="display: flex; align-items: center; justify-content: flex-end;">
+                                <span class="order-card-label" style="margin-right: 10px;">PESO:</span>
+                                <span class="order-card-value" id="order-weight">5.4 kg</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Algorithm Selector -->
+    <div id="modal-algorithm" class="modal-backdrop hidden">
+        <div class="modal-panel" style="width:380px;">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <i data-lucide="git-branch" style="width:18px;height:18px;color:#FF6B1A"></i>
+                    <span>SELECTOR DE ALGORITMO</span>
+                </div>
+                <button class="modal-close" id="close-algorithm"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="algo-option" data-algo="dijkstra">
+                    <div class="algo-option-header">
+                        <span class="algo-name">Dijkstra</span>
+                        <span class="algo-badge-custom active-badge">ACTIVO</span>
+                    </div>
+                    <p class="algo-desc">Ruta más corta por peso acumulado. Óptimo para grafos con pesos positivos.</p>
+                </div>
+                <div class="algo-option" data-algo="astar">
+                    <div class="algo-option-header">
+                        <span class="algo-name">A* (A-Star)</span>
+                        <span class="algo-badge-custom">RECOMENDADO</span>
+                    </div>
+                    <p class="algo-desc">Búsqueda heurística. Más rápido que Dijkstra en la mayoría de casos.</p>
+                </div>
+                <div class="algo-option" data-algo="genetic">
+                    <div class="algo-option-header">
+                        <span class="algo-name">Algoritmo Genético</span>
+                        <span class="algo-badge-custom">EXPERIMENTAL</span>
+                    </div>
+                    <p class="algo-desc">Evolución de rutas mediante selección, cruce y mutación. Ideal para VRP.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Chart Panel -->
+    <div id="modal-chart" class="modal-backdrop hidden">
+        <div class="modal-panel" style="width:600px;">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <i data-lucide="bar-chart-3" style="width:18px;height:18px;color:#FF6B1A"></i>
+                    <span>PANEL DE EFICIENCIA</span>
+                </div>
+                <button class="modal-close" id="close-chart"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="chart-grid">
+                    <div class="chart-box">
+                        <canvas id="chart-efficiency"></canvas>
+                    </div>
+                    <div class="chart-box">
+                        <canvas id="chart-fuel"></canvas>
+                    </div>
+                </div>
+                <div class="chart-legend">
+                    <span class="chart-legend-item"><span class="legend-dot" style="background:#FF6B1A"></span> Tiempo Real</span>
+                    <span class="chart-legend-item"><span class="legend-dot" style="background:#00E676"></span> Tiempo Optimizado</span>
+                </div>
             </div>
         </div>
     </div>
@@ -200,7 +423,6 @@
     <script>
         lucide.createIcons();
     </script>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module" src="reference.js"></script>
     <script type="module" src="renderer.js"></script>
 </body>
